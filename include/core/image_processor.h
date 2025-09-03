@@ -1,8 +1,9 @@
 #pragma once
-#include <vector>
+#include <opencv2/core.hpp>
 #include <string>
 #include <functional>
 #include <memory>
+#include <vector>
 
 namespace imagetui
 {
@@ -13,51 +14,32 @@ namespace imagetui
 
     struct ImageData
     {
-      int width;
-      int height;
-      int channels;
-      std::vector<unsigned char> data;
+      cv::Mat mat;
 
-      ImageData() : width(0), height(0), channels(0) {}
-      ImageData(int w, int h, int c) : width(w), height(h), channels(c)
-      {
-        data.resize(static_cast<size_t>(w) * h * c);
-      }
+      ImageData() = default;
+      explicit ImageData(cv::Mat m) : mat(std::move(m)) {}
+      ImageData(int width, int height, int type) : mat(height, width, type) {}
 
-      bool isValid() const
-      {
-        return width > 0 && height > 0 && channels > 0 && !data.empty();
-      }
+      bool isValid() const { return !mat.empty(); }
+      int width() const { return mat.cols; }
+      int height() const { return mat.rows; }
+      int channels() const { return mat.channels(); }
 
-      size_t getPixelIndex(int x, int y) const
-      {
-        return static_cast<size_t>(y * width + x) * channels;
-      }
+      cv::Mat &getMat() { return mat; }
+      const cv::Mat &getMat() const { return mat; }
     };
 
     class ImageProcessor
     {
     public:
-      // Fast memory-mapped loading
-      static std::unique_ptr<ImageData> loadImageFast(const std::string &filename);
       static std::unique_ptr<ImageData> loadImage(const std::string &filename);
-
-      // Ultra-fast BMP saving (no compression)
-      static bool saveImageUltraFast(const std::string &filename, const ImageData &image);
-      // Fast saving with quality control
       static bool saveImageFast(const std::string &filename, const ImageData &image, int quality = 85);
-      // Regular saving
-      static bool saveImage(const std::string &filename, const ImageData &image);
-
-      static std::vector<std::string> getSupportedFormats();
+      static bool saveImageUltraFast(const std::string &filename, const ImageData &image);
 
     private:
-      static bool validateImage(const ImageData &image);
-      static std::vector<unsigned char> readFileToBuffer(const std::string &filename);
-      static bool writeBufferToFile(const std::string &filename, const std::vector<unsigned char> &buffer);
+      static std::vector<int> getCompressionParams(const std::string &filename, int quality);
+      static std::vector<int> getUltraFastParams(const std::string &filename);
     };
-
-    void sendProgress(const ProgressCallback &callback, float progress);
 
   }
 }

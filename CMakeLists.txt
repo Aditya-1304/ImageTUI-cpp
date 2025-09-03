@@ -5,11 +5,18 @@ project(ImageTUI VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  
 
 # Build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
+
+find_package(OpenCV 4 REQUIRED COMPONENTS core imgcodecs imgproc)
+message(STATUS "OpenCV: ${OpenCV_VERSION}")
+message(STATUS "OpenCV include dirs: ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "OpenCV libs (selected): ${OpenCV_LIBS}")
+
 
 # Compiler-specific flags
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -33,7 +40,8 @@ endif()
 
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
-include_directories(${CMAKE_SOURCE_DIR}/third_party)
+include_directories(${OpenCV_INCLUDE_DIRS})
+
 
 # Core library sources
 set(CORE_SOURCES
@@ -75,29 +83,29 @@ set(LIB_SOURCES
 # Create static library for better organization
 add_library(imagelib STATIC ${LIB_SOURCES})
 
+target_include_directories(imagelib PUBLIC
+  ${CMAKE_SOURCE_DIR}/include
+  ${OpenCV_INCLUDE_DIRS}
+)
+target_link_libraries(imagelib PUBLIC ${OpenCV_LIBS})
+
 # Main executable
 add_executable(image_tui ${MAIN_SOURCES})
-target_link_libraries(image_tui imagelib)
 
-# # Example executable
-# add_executable(simple_filters examples/simple_filters.cpp)
-# target_link_libraries(simple_filters imagelib)
+target_include_directories(image_tui PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
-# Platform-specific linking
-if(WIN32)
-    # Windows specific libraries if needed
-    target_link_libraries(image_tui)
-else()
-    # Unix-like systems
-    target_link_libraries(image_tui pthread)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        target_link_libraries(image_tui dl)
-    endif()
+target_link_libraries(image_tui PRIVATE imagelib)
+
+
+if(UNIX AND NOT APPLE)
+  target_link_libraries(image_tui PRIVATE pthread)
 endif()
+
 
 # Preprocessor definitions
 target_compile_definitions(imagelib PUBLIC
     PROJECT_VERSION="${PROJECT_VERSION}"
+    OPENCV_ENABLED=1
     $<$<CONFIG:Debug>:DEBUG_BUILD>
     $<$<CONFIG:Release>:RELEASE_BUILD>
 )
@@ -106,23 +114,6 @@ target_compile_definitions(imagelib PUBLIC
 install(TARGETS image_tui DESTINATION bin)
 # install(TARGETS simple_filters DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include/imagetui)
-
-# # Optional: Testing
-# option(BUILD_TESTS "Build test suite" OFF)
-# if(BUILD_TESTS)
-#     enable_testing()
-#     add_subdirectory(tests)
-# endif()
-
-# # Optional: Documentation
-# find_package(Doxygen)
-# if(DOXYGEN_FOUND)
-#     add_custom_target(docs
-#         COMMAND ${DOXYGEN_EXECUTABLE}
-#         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-#         COMMENT "Generating documentation"
-#     )
-# endif()
 
 # Package configuration
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
@@ -134,3 +125,4 @@ include(CPack)
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
+
